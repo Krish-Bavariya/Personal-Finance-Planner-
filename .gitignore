@@ -1,6 +1,11 @@
+venv/
 .env
 __pycache__/
 *.pyc
-venv/
-uploads/
-*.csv
+*.pyo
+*.pyd
+uploads/*
+!uploads/.gitkeep
+.DS_Store
+Thumbs.db
+*.log
