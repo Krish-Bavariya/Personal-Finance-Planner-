@@ -1,0 +1,1472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Finance Planner</title>
+  <meta name="description" content="Upload your expense CSV and get intelligent financial analysis." />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:         #0e0e10;
+      --surface:    #18181b;
+      --surface-2:  #232326;
+      --surface-3:  #2a2a2e;
+      --border:     #2e2e32;
+      --border-2:   #3f3f46;
+
+      --accent:     #6366f1;
+      --accent-dim: #4f46e5;
+      --green:      #22c55e;
+      --red:        #ef4444;
+      --amber:      #f59e0b;
+      --blue:       #3b82f6;
+
+      --text:       #fafafa;
+      --text-2:     #a1a1aa;
+      --text-3:     #52525b;
+
+      --radius:     6px;
+      --radius-lg:  10px;
+    }
+
+    html, body {
+      height: 100%;
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 14px;
+      line-height: 1.5;
+      overflow: hidden;
+    }
+
+    /* ── HEADER ─────────────────────────────────────────────────────── */
+    #header {
+      height: 52px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .brand-mark {
+      width: 28px;
+      height: 28px;
+      background: var(--accent);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      flex-shrink: 0;
+    }
+
+    .brand-name {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+      letter-spacing: -0.2px;
+    }
+
+    .brand-sep {
+      width: 1px;
+      height: 16px;
+      background: var(--border-2);
+    }
+
+    .brand-sub {
+      font-size: 12px;
+      color: var(--text-3);
+    }
+
+    #status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-3);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    #status-badge.active {
+      border-color: var(--green);
+      color: var(--green);
+    }
+
+    #status-badge .led {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+      flex-shrink: 0;
+    }
+
+    /* ── LAYOUT ─────────────────────────────────────────────────────── */
+    #app {
+      display: flex;
+      height: calc(100vh - 52px);
+      overflow: hidden;
+    }
+
+    /* ── SIDEBAR ─────────────────────────────────────────────────────── */
+    #sidebar {
+      width: 320px;
+      flex-shrink: 0;
+      border-right: 1px solid var(--border);
+      overflow-y: auto;
+      background: var(--surface);
+    }
+
+    #sidebar::-webkit-scrollbar { width: 4px; }
+    #sidebar::-webkit-scrollbar-thumb { background: var(--border-2); }
+
+    .sidebar-section {
+      padding: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .sidebar-section:last-child { border-bottom: none; }
+
+    .section-head {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-3);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-bottom: 12px;
+    }
+
+    /* ── UPLOAD ZONE ─────────────────────────────────────────────────── */
+    #upload-zone {
+      position: relative;
+      border: 1px dashed var(--border-2);
+      border-radius: var(--radius-lg);
+      padding: 24px 16px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+    }
+
+    #upload-zone:hover { border-color: var(--accent); background: rgba(99,102,241,0.04); }
+    #upload-zone.drag-over { border-color: var(--accent); background: rgba(99,102,241,0.06); border-style: solid; }
+    #upload-zone.uploaded { border-color: var(--green); border-style: solid; background: rgba(34,197,94,0.04); }
+
+    #upload-zone input[type="file"] {
+      position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+    }
+
+    .upload-icon {
+      width: 36px;
+      height: 36px;
+      margin: 0 auto 10px;
+      border: 1px solid var(--border-2);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--surface-2);
+      font-size: 16px;
+    }
+
+    .upload-title {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text);
+      margin-bottom: 4px;
+    }
+
+    .upload-sub {
+      font-size: 11px;
+      color: var(--text-3);
+      line-height: 1.6;
+    }
+
+    .upload-sub a { color: var(--accent); text-decoration: none; }
+
+    #upload-filename {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      margin-top: 10px;
+      font-size: 12px;
+      color: var(--green);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    #upload-btn {
+      display: none;
+      width: 100%;
+      margin-top: 12px;
+      padding: 8px 14px;
+      background: var(--accent);
+      border: none;
+      border-radius: var(--radius);
+      color: #fff;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    #upload-btn:hover { background: var(--accent-dim); }
+    #upload-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    /* Progress bar */
+    #upload-progress { display: none; margin-top: 10px; }
+
+    .pbar-track {
+      height: 3px;
+      background: var(--surface-3);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .pbar-fill {
+      height: 100%;
+      background: var(--accent);
+      animation: pbar 1.4s ease-in-out infinite;
+    }
+
+    @keyframes pbar {
+      0%   { width: 10%; margin-left: 0; }
+      50%  { width: 55%; margin-left: 25%; }
+      100% { width: 10%; margin-left: 90%; }
+    }
+
+    .pbar-label { font-size: 11px; color: var(--text-3); margin-top: 5px; }
+
+    /* Alert */
+    #alert-box {
+      display: none;
+      margin-top: 10px;
+      padding: 8px 12px;
+      border-radius: var(--radius);
+      font-size: 12px;
+      border-left: 3px solid;
+    }
+
+    #alert-box.success { background: rgba(34,197,94,0.08); border-color: var(--green); color: var(--green); }
+    #alert-box.error   { background: rgba(239,68,68,0.08);  border-color: var(--red);   color: var(--red);   }
+
+    /* ── SUMMARY STATS ───────────────────────────────────────────────── */
+    #summary-section { display: none; }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1px;
+      background: var(--border);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      margin-bottom: 12px;
+    }
+
+    .stat-cell {
+      background: var(--surface);
+      padding: 12px;
+    }
+
+    .stat-cell:hover { background: var(--surface-2); }
+
+    .stat-key {
+      font-size: 10px;
+      font-weight: 500;
+      color: var(--text-3);
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      margin-bottom: 4px;
+    }
+
+    .stat-val {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text);
+      font-family: 'JetBrains Mono', monospace;
+      letter-spacing: -0.5px;
+    }
+
+    .stat-val.accent { color: var(--accent); }
+    .stat-val.green  { color: var(--green); }
+    .stat-val.amber  { color: var(--amber); }
+
+    /* Date range bar */
+    .info-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 12px;
+    }
+
+    .info-row:last-child { border-bottom: none; }
+    .info-key { color: var(--text-3); }
+    .info-val { color: var(--text); font-family: 'JetBrains Mono', monospace; font-size: 11px; }
+
+    /* Category breakdown */
+    .cat-table { width: 100%; }
+
+    .cat-row {
+      display: grid;
+      grid-template-columns: 90px 1fr 60px;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .cat-row:last-child { border-bottom: none; }
+
+    .cat-label {
+      font-size: 12px;
+      color: var(--text-2);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .cat-bar-bg {
+      height: 4px;
+      background: var(--surface-3);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .cat-bar {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 2px;
+      transition: width 0.8s ease;
+    }
+
+    .cat-amt {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text);
+      font-family: 'JetBrains Mono', monospace;
+      text-align: right;
+    }
+
+    /* Reset btn */
+    #reset-btn {
+      width: 100%;
+      padding: 7px 12px;
+      background: transparent;
+      border: 1px solid var(--border-2);
+      border-radius: var(--radius);
+      color: var(--text-3);
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.15s;
+      text-align: left;
+    }
+
+    #reset-btn:hover { border-color: var(--red); color: var(--red); background: rgba(239,68,68,0.05); }
+
+    /* ── CHAT PANEL ──────────────────────────────────────────────────── */
+    #chat-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background: var(--bg);
+    }
+
+    /* Empty state */
+    #chat-empty {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 24px;
+      text-align: center;
+      gap: 20px;
+    }
+
+    .empty-glyph {
+      width: 52px;
+      height: 52px;
+      border: 1px solid var(--border-2);
+      border-radius: 12px;
+      background: var(--surface);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+    }
+
+    .empty-title {
+      font-size: 20px;
+      font-weight: 600;
+      color: var(--text);
+      letter-spacing: -0.4px;
+    }
+
+    .empty-body {
+      font-size: 13px;
+      color: var(--text-3);
+      max-width: 320px;
+      line-height: 1.7;
+    }
+
+    .quick-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      width: 100%;
+      max-width: 460px;
+    }
+
+    .quick-label {
+      grid-column: 1 / -1;
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-3);
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      text-align: left;
+    }
+
+    .quick-btn {
+      padding: 10px 12px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text-2);
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      cursor: pointer;
+      text-align: left;
+      transition: all 0.15s;
+      line-height: 1.4;
+    }
+
+    .quick-btn:hover:not(:disabled) {
+      border-color: var(--accent);
+      color: var(--text);
+      background: var(--surface-2);
+    }
+
+    .quick-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+    /* Messages */
+    #chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    #chat-messages::-webkit-scrollbar { width: 4px; }
+    #chat-messages::-webkit-scrollbar-thumb { background: var(--border-2); }
+
+    /* Message rows */
+    .msg-row {
+      display: flex;
+      gap: 10px;
+      padding: 6px 0;
+      animation: fadeUp 0.2s ease;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .msg-row.user { flex-direction: row-reverse; }
+
+    .msg-avatar {
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      font-weight: 600;
+      margin-top: 2px;
+    }
+
+    .msg-row.user  .msg-avatar { background: var(--accent); color: #fff; }
+    .msg-row.agent .msg-avatar { background: var(--surface-2); color: var(--text-2); border: 1px solid var(--border); }
+
+    .msg-content { max-width: 75%; }
+
+    .msg-bubble {
+      padding: 10px 14px;
+      border-radius: var(--radius-lg);
+      font-size: 13.5px;
+      line-height: 1.6;
+    }
+
+    .msg-row.user .msg-bubble {
+      background: var(--accent);
+      color: #fff;
+      border-bottom-right-radius: 3px;
+    }
+
+    .msg-row.agent .msg-bubble {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-bottom-left-radius: 3px;
+    }
+
+    .msg-time {
+      font-size: 10px;
+      color: var(--text-3);
+      margin-top: 3px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .msg-row.user .msg-time  { text-align: right; }
+    .msg-row.agent .msg-time { text-align: left; }
+
+    /* Markdown in agent bubble */
+    .msg-bubble h3 {
+      font-size: 14px; font-weight: 600; color: var(--text);
+      margin: 12px 0 6px; padding-bottom: 6px;
+      border-bottom: 1px solid var(--border);
+    }
+    .msg-bubble h3:first-child { margin-top: 0; }
+
+    .msg-bubble p { margin-bottom: 8px; color: var(--text-2); }
+    .msg-bubble p:last-child { margin-bottom: 0; }
+
+    .msg-bubble strong { color: var(--text); font-weight: 600; }
+
+    .msg-bubble ul, .msg-bubble ol { padding-left: 18px; margin-bottom: 8px; }
+    .msg-bubble li { margin-bottom: 4px; color: var(--text-2); }
+    .msg-bubble li strong { color: var(--text); }
+
+    .msg-bubble table {
+      width: 100%; border-collapse: collapse; margin: 10px 0;
+      font-size: 12px; border: 1px solid var(--border);
+      border-radius: var(--radius); overflow: hidden;
+    }
+
+    .msg-bubble th {
+      background: var(--surface-2); color: var(--text-2);
+      font-weight: 600; padding: 7px 10px; text-align: left;
+      font-size: 11px; text-transform: uppercase; letter-spacing: 0.4px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .msg-bubble td {
+      padding: 7px 10px; color: var(--text-2);
+      border-bottom: 1px solid var(--border);
+      font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    }
+
+    .msg-bubble tr:last-child td { border-bottom: none; }
+    .msg-bubble tr:nth-child(even) td { background: rgba(255,255,255,0.02); }
+
+    .msg-bubble blockquote {
+      border-left: 3px solid var(--accent);
+      padding: 6px 10px; margin: 8px 0;
+      background: rgba(99,102,241,0.06);
+      border-radius: 0 var(--radius) var(--radius) 0;
+      color: var(--text);
+    }
+
+    .msg-bubble hr { border: none; border-top: 1px solid var(--border); margin: 12px 0; }
+
+    .msg-bubble code {
+      font-family: 'JetBrains Mono', monospace; font-size: 11px;
+      background: var(--surface-2); color: var(--text-2);
+      padding: 1px 5px; border-radius: 3px;
+      border: 1px solid var(--border);
+    }
+
+    /* Typing */
+    #typing-row {
+      display: none;
+      gap: 10px;
+      padding: 6px 24px 0;
+      align-items: flex-start;
+    }
+
+    .typing-avatar {
+      width: 28px; height: 28px; border-radius: 6px;
+      background: var(--surface-2); color: var(--text-2);
+      border: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 600; flex-shrink: 0;
+    }
+
+    .typing-dots {
+      display: flex; align-items: center; gap: 5px;
+      padding: 10px 14px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      border-bottom-left-radius: 3px;
+    }
+
+    .dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--text-3);
+    }
+
+    .dot:nth-child(1) { animation: dotBlink 1.2s 0s   infinite; }
+    .dot:nth-child(2) { animation: dotBlink 1.2s 0.2s infinite; }
+    .dot:nth-child(3) { animation: dotBlink 1.2s 0.4s infinite; }
+
+    @keyframes dotBlink {
+      0%, 100% { opacity: 0.2; }
+      50%       { opacity: 1; }
+    }
+
+    /* ── INPUT BAR ───────────────────────────────────────────────────── */
+    #input-bar {
+      padding: 12px 20px 16px;
+      border-top: 1px solid var(--border);
+      background: var(--bg);
+      flex-shrink: 0;
+    }
+
+    #input-row {
+      display: flex;
+      gap: 8px;
+      align-items: flex-end;
+    }
+
+    #msg-input {
+      flex: 1;
+      padding: 10px 14px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      font-size: 13.5px;
+      line-height: 1.5;
+      resize: none;
+      min-height: 42px;
+      max-height: 130px;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    #msg-input:focus { border-color: var(--accent); }
+    #msg-input::placeholder { color: var(--text-3); }
+    #msg-input:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    #send-btn {
+      height: 42px;
+      padding: 0 16px;
+      background: var(--accent);
+      border: none;
+      border-radius: var(--radius);
+      color: #fff;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.15s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+
+    #send-btn:hover:not(:disabled) { background: var(--accent-dim); }
+    #send-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+    #send-btn svg { width: 14px; height: 14px; fill: white; }
+
+    .input-meta {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 5px;
+      padding: 0 2px;
+    }
+
+    .meta-hint { font-size: 11px; color: var(--text-3); }
+    #char-ct   { font-size: 11px; color: var(--text-3); font-family: 'JetBrains Mono', monospace; }
+    #char-ct.warn  { color: var(--amber); }
+    #char-ct.limit { color: var(--red); }
+
+    /* ── Tab Bar ─────────────────────────────────────────────────── */
+    #tab-bar {
+      display: none;
+      align-items: center;
+      gap: 0;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      padding: 0 20px;
+      flex-shrink: 0;
+    }
+
+    .tab-btn {
+      padding: 11px 16px;
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: var(--text-3);
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: color 0.15s, border-color 0.15s;
+      margin-bottom: -1px;
+    }
+
+    .tab-btn:hover { color: var(--text-2); }
+    .tab-btn.active { color: var(--text); border-bottom-color: var(--accent); }
+
+    /* ── Charts Panel ─────────────────────────────────────────────── */
+    #charts-panel {
+      display: none;
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    #charts-panel::-webkit-scrollbar { width: 4px; }
+    #charts-panel::-webkit-scrollbar-thumb { background: var(--border-2); }
+
+    .charts-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+
+    .chart-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 18px 20px;
+    }
+
+    .chart-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-3);
+      text-transform: uppercase;
+      letter-spacing: 0.7px;
+      margin-bottom: 16px;
+    }
+
+    .chart-wrap {
+      position: relative;
+      width: 100%;
+    }
+
+    .chart-card.full { grid-column: 1 / -1; }
+
+    .chart-stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1px;
+      background: var(--border);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      margin-bottom: 20px;
+    }
+
+    .cstat {
+      background: var(--surface);
+      padding: 12px 14px;
+    }
+
+    .cstat-k { font-size: 10px; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 3px; }
+    .cstat-v { font-size: 15px; font-weight: 600; font-family: 'JetBrains Mono', monospace; color: var(--text); }
+    .cstat-v.green { color: var(--green); }
+    .cstat-v.accent { color: var(--accent); }
+
+    /* ── Responsive ───────────────────────────────────────────────── */
+    @media (max-width: 700px) {
+      html, body { overflow: auto; }
+      #app { flex-direction: column; height: auto; overflow: visible; }
+      #sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border); }
+      #chat-panel { min-height: 70vh; }
+      .msg-content { max-width: 90%; }
+      .quick-grid { grid-template-columns: 1fr; }
+      .charts-row { grid-template-columns: 1fr; }
+      .chart-stats { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+
+<body>
+
+<!-- HEADER -->
+<header id="header">
+  <div class="brand">
+    <div class="brand-mark">$</div>
+    <span class="brand-name">Finance Planner</span>
+    <div class="brand-sep"></div>
+    <span class="brand-sub">AI Expense Advisor</span>
+  </div>
+  <div id="status-badge">
+    <span class="led"></span>
+    <span id="status-text">no data</span>
+  </div>
+</header>
+
+<!-- APP -->
+<div id="app">
+
+  <!-- SIDEBAR -->
+  <aside id="sidebar">
+
+    <!-- Upload -->
+    <div class="sidebar-section">
+      <p class="section-head">Data Source</p>
+      <!-- file input lives outside the zone so it doesn't block button clicks -->
+      <input type="file" id="file-input" accept=".csv" style="display:none" />
+      <div id="upload-zone">
+        <div class="upload-icon">📁</div>
+        <p class="upload-title">Drop CSV file here</p>
+        <p class="upload-sub">
+          or <a>browse files</a><br/>
+          Columns: date · amount · category · description
+        </p>
+        <div id="upload-filename">
+          <span>&#10003;</span>
+          <span id="fname"></span>
+        </div>
+        <button id="upload-btn" type="button">Upload &amp; Analyze</button>
+        <div id="upload-progress">
+          <div class="pbar-track"><div class="pbar-fill"></div></div>
+          <p class="pbar-label">Parsing…</p>
+        </div>
+      </div>
+      <div id="alert-box"></div>
+    </div>
+
+    <!-- Summary -->
+    <div class="sidebar-section" id="summary-section">
+      <p class="section-head">Summary</p>
+
+      <div class="stats-grid">
+        <div class="stat-cell">
+          <div class="stat-key">Total Spent</div>
+          <div class="stat-val green" id="s-total">—</div>
+        </div>
+        <div class="stat-cell">
+          <div class="stat-key">Transactions</div>
+          <div class="stat-val accent" id="s-count">—</div>
+        </div>
+        <div class="stat-cell">
+          <div class="stat-key">Avg / Txn</div>
+          <div class="stat-val" id="s-avg">—</div>
+        </div>
+        <div class="stat-cell">
+          <div class="stat-key">Top Category</div>
+          <div class="stat-val amber" id="s-top" style="font-size:13px;font-family:Inter">—</div>
+        </div>
+      </div>
+
+      <div style="margin-bottom:12px">
+        <div class="info-row">
+          <span class="info-key">Date Range</span>
+          <span class="info-val" id="s-range">—</span>
+        </div>
+      </div>
+
+      <p class="section-head" style="margin-bottom:8px">By Category</p>
+      <div class="cat-table" id="cat-breakdown"></div>
+    </div>
+
+    <!-- Actions -->
+    <div class="sidebar-section" id="actions-section" style="display:none">
+      <button id="reset-btn" type="button">Clear conversation history</button>
+    </div>
+
+  </aside>
+
+  <!-- CHAT / CHARTS -->
+  <main id="chat-panel">
+
+    <!-- Empty state -->
+    <div id="chat-empty">
+      <div class="empty-glyph">$</div>
+      <h1 class="empty-title">Finance Advisor</h1>
+      <p class="empty-body">Upload a CSV expense file to get started. Then ask any question about your spending.</p>
+
+      <div class="quick-grid">
+        <p class="quick-label">Suggested questions</p>
+        <button class="quick-btn" data-q="0" disabled>Spending breakdown by category with percentages</button>
+        <button class="quick-btn" data-q="1" disabled>Which month had the highest spending?</button>
+        <button class="quick-btn" data-q="2" disabled>Where can I cut spending most?</button>
+        <button class="quick-btn" data-q="3" disabled>Top 5 biggest individual expenses</button>
+      </div>
+    </div>
+
+    <!-- Tab bar (shown after data loaded) -->
+    <div id="tab-bar">
+      <button class="tab-btn active" id="tab-chat" type="button">Chat</button>
+      <button class="tab-btn" id="tab-charts" type="button">Charts</button>
+    </div>
+
+    <!-- Charts panel -->
+    <div id="charts-panel">
+      <!-- top stat strip -->
+      <div class="chart-stats" id="chart-stats-strip"></div>
+
+      <div class="charts-row">
+        <!-- Donut: category breakdown -->
+        <div class="chart-card">
+          <p class="chart-title">Spending by Category</p>
+          <div class="chart-wrap" style="max-height:280px">
+            <canvas id="canvas-donut"></canvas>
+          </div>
+        </div>
+
+        <!-- Bar: top categories -->
+        <div class="chart-card">
+          <p class="chart-title">Top Categories</p>
+          <div class="chart-wrap" style="max-height:280px">
+            <canvas id="canvas-bar-cat"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Full-width: monthly trend -->
+      <div class="chart-card full">
+        <p class="chart-title">Monthly Spending Trend</p>
+        <div class="chart-wrap" style="max-height:220px">
+          <canvas id="canvas-monthly"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Messages -->
+    <div id="chat-messages" style="display:none;flex-direction:column"></div>
+
+    <!-- Typing -->
+    <div id="typing-row">
+      <div class="typing-avatar">AI</div>
+      <div class="typing-dots">
+        <div class="dot"></div>
+        <div class="dot"></div>
+        <div class="dot"></div>
+      </div>
+    </div>
+
+    <!-- Input -->
+    <div id="input-bar">
+      <div id="input-row">
+        <textarea id="msg-input" rows="1" placeholder="Ask about your expenses…" disabled maxlength="2000"></textarea>
+        <button id="send-btn" type="button" disabled>
+          <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+          Send
+        </button>
+      </div>
+      <div class="input-meta">
+        <span class="meta-hint">Enter to send · Shift+Enter for new line</span>
+        <span id="char-ct">0/2000</span>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+  marked.setOptions({ breaks: true, gfm: true });
+
+  // Detected currency symbol — updated from upload response
+  let currencySymbol = '$';
+
+  // refs
+  const fileInput       = document.getElementById('file-input');
+  const uploadZone      = document.getElementById('upload-zone');
+  const uploadFilename  = document.getElementById('upload-filename');
+  const fnameSpan       = document.getElementById('fname');
+  const uploadBtn       = document.getElementById('upload-btn');
+  const uploadProgress  = document.getElementById('upload-progress');
+  const alertBox        = document.getElementById('alert-box');
+  const summarySection  = document.getElementById('summary-section');
+  const actionsSection  = document.getElementById('actions-section');
+  const sTotal          = document.getElementById('s-total');
+  const sCount          = document.getElementById('s-count');
+  const sAvg            = document.getElementById('s-avg');
+  const sTop            = document.getElementById('s-top');
+  const sRange          = document.getElementById('s-range');
+  const catBreakdown    = document.getElementById('cat-breakdown');
+  const resetBtn        = document.getElementById('reset-btn');
+  const statusBadge     = document.getElementById('status-badge');
+  const statusText      = document.getElementById('status-text');
+  const chatEmpty       = document.getElementById('chat-empty');
+  const chatMessages    = document.getElementById('chat-messages');
+  const typingRow       = document.getElementById('typing-row');
+  const msgInput        = document.getElementById('msg-input');
+  const sendBtn         = document.getElementById('send-btn');
+  const charCt          = document.getElementById('char-ct');
+  const quickBtns       = document.querySelectorAll('.quick-btn');
+
+  let dataLoaded = false;
+  let thinking   = false;
+
+  const QUESTIONS = [
+    'Show me a breakdown of my spending by category with percentages.',
+    'Which month had the highest spending and by how much?',
+    'Where can I cut spending the most? Give me specific numbers.',
+    'What are my top 5 biggest individual expenses?',
+  ];
+
+  // ── Utilities ────────────────────────────────────────────────────────
+  function usd(n) {
+    // Use detected symbol; for known ISO symbols use Intl, otherwise prepend manually
+    const ISO_SYMBOLS = { '$': 'USD', '£': 'GBP', '€': 'EUR', '¥': 'JPY', '₹': 'INR' };
+    const code = ISO_SYMBOLS[currencySymbol];
+    if (code) {
+      return new Intl.NumberFormat('en-US', {
+        style: 'currency', currency: code, maximumFractionDigits: 2
+      }).format(n);
+    }
+    // Fallback: manual prefix
+    return currencySymbol + new Intl.NumberFormat('en-US', {
+      minimumFractionDigits: 2, maximumFractionDigits: 2
+    }).format(n);
+  }
+
+  function timeStr() {
+    return new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+  }
+
+  function autoH(el) {
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 130) + 'px';
+  }
+
+  function alert_(msg, type) {
+    alertBox.textContent = msg;
+    alertBox.className   = type;
+    alertBox.style.display = 'block';
+    if (type === 'success') setTimeout(() => { alertBox.style.display = 'none'; }, 4000);
+  }
+
+  function setStatus(active, txt) {
+    statusText.textContent = txt;
+    statusBadge.className  = active ? 'active' : '';
+  }
+
+  // ── Drag-and-drop & file picker ──────────────────────────────────────
+  // Clicking the zone (but NOT the button) opens the file picker
+  uploadZone.addEventListener('click', e => {
+    if (e.target === uploadBtn || uploadBtn.contains(e.target)) return;
+    fileInput.click();
+  });
+
+  uploadZone.addEventListener('dragover',  e => { e.preventDefault(); uploadZone.classList.add('drag-over'); });
+  uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag-over'));
+  uploadZone.addEventListener('drop', e => {
+    e.preventDefault();
+    uploadZone.classList.remove('drag-over');
+    if (e.dataTransfer.files[0]) pick(e.dataTransfer.files[0]);
+  });
+  fileInput.addEventListener('change', () => { if (fileInput.files[0]) pick(fileInput.files[0]); });
+
+  function pick(f) {
+    if (!f.name.toLowerCase().endsWith('.csv')) { alert_('Only .csv files are accepted.', 'error'); return; }
+    fnameSpan.textContent        = f.name;
+    uploadFilename.style.display = 'flex';
+    uploadBtn.style.display      = 'block';
+    uploadZone.classList.remove('uploaded');
+    alertBox.style.display       = 'none';
+  }
+
+  // ── Upload ───────────────────────────────────────────────────────────
+  uploadBtn.addEventListener('click', async () => {
+    const f = fileInput.files[0];
+    if (!f) return;
+
+    uploadBtn.disabled             = true;
+    uploadProgress.style.display   = 'block';
+    alertBox.style.display         = 'none';
+
+    const fd = new FormData();
+    fd.append('file', f);
+
+    try {
+      const r = await fetch('/api/upload', { method: 'POST', body: fd });
+      const d = await r.json();
+
+      if (!r.ok || !d.success) { alert_(d.error || 'Upload failed.', 'error'); return; }
+
+      uploadZone.classList.add('uploaded');
+      alert_(d.expense_count + ' transactions loaded.', 'success');
+      if (d.currency_symbol) currencySymbol = d.currency_symbol;
+      buildSummary(d.summary);
+      openChat();
+      setStatus(true, d.expense_count + ' txns');
+      dataLoaded = true;
+
+      addMsg('agent',
+        '### Data loaded\n\n' +
+        'I\'ve analyzed **' + d.expense_count + ' transactions**:\n\n' +
+        '- Total: **' + usd(d.summary.total_amount) + '**\n' +
+        '- Top category: **' + d.summary.top_category + '**\n' +
+        '- Period: **' + d.summary.date_range + '**\n\n' +
+        'Ask me anything about your spending.'
+      );
+
+    } catch (e) {
+      alert_('Network error — is the server running?', 'error');
+    } finally {
+      uploadBtn.disabled           = false;
+      uploadProgress.style.display = 'none';
+    }
+  });
+
+  // ── Build summary sidebar ────────────────────────────────────────────
+  function buildSummary(s) {
+    sTotal.textContent = usd(s.total_amount);
+    sCount.textContent = s.expense_count.toLocaleString();
+    sAvg.textContent   = usd(s.average_expense);
+    sTop.textContent   = s.top_category;
+    sRange.textContent = s.date_range;
+
+    catBreakdown.innerHTML = '';
+    const cats   = Object.entries(s.category_totals).slice(0, 7);
+    const maxAmt = cats.length ? cats[0][1] : 1;
+
+    cats.forEach(([name, amt]) => {
+      const pct = ((amt / maxAmt) * 100).toFixed(0);
+      const row = document.createElement('div');
+      row.className = 'cat-row';
+      row.innerHTML =
+        '<span class="cat-label" title="' + name + '">' + name + '</span>' +
+        '<div class="cat-bar-bg"><div class="cat-bar" style="width:0" data-w="' + pct + '%"></div></div>' +
+        '<span class="cat-amt">' + usd(amt) + '</span>';
+      catBreakdown.appendChild(row);
+    });
+
+    requestAnimationFrame(() => {
+      document.querySelectorAll('.cat-bar').forEach(el => { el.style.width = el.dataset.w; });
+    });
+
+    summarySection.style.display = 'block';
+    actionsSection.style.display = 'block';
+
+    // Build charts after DOM is ready
+    requestAnimationFrame(() => buildCharts(s));
+  }
+
+  // ── Open chat ────────────────────────────────────────────────────────
+  function openChat() {
+    msgInput.disabled          = false;
+    sendBtn.disabled           = false;
+    quickBtns.forEach(b => { b.disabled = false; });
+    chatEmpty.style.display    = 'none';
+    chatMessages.style.display = 'flex';
+    tabBar.style.display       = 'flex';
+    switchTab('chat');
+    msgInput.focus();
+  }
+
+  // ── Tab switching ────────────────────────────────────────────────────
+  const tabBar      = document.getElementById('tab-bar');
+  const tabChat     = document.getElementById('tab-chat');
+  const tabCharts   = document.getElementById('tab-charts');
+  const chartsPanel = document.getElementById('charts-panel');
+
+  tabChat.addEventListener('click',   () => switchTab('chat'));
+  tabCharts.addEventListener('click', () => switchTab('charts'));
+
+  function switchTab(which) {
+    if (which === 'chat') {
+      chatMessages.style.display  = 'flex';
+      chartsPanel.style.display   = 'none';
+      typingRow.style.display     = thinking ? 'flex' : 'none';
+      inputBar_.style.display     = 'block';
+      tabChat.classList.add('active');
+      tabCharts.classList.remove('active');
+    } else {
+      chatMessages.style.display  = 'none';
+      chartsPanel.style.display   = 'flex';
+      typingRow.style.display     = 'none';
+      inputBar_.style.display     = 'none';
+      tabCharts.classList.add('active');
+      tabChat.classList.remove('active');
+    }
+  }
+
+  const inputBar_ = document.getElementById('input-bar');
+
+  // ── Build charts ─────────────────────────────────────────────────────
+  const CHART_COLORS = [
+    '#6366f1','#22c55e','#f59e0b','#3b82f6','#ef4444',
+    '#a855f7','#14b8a6','#f97316','#ec4899','#84cc16',
+    '#06b6d4','#eab308','#8b5cf6','#10b981','#f43f5e',
+  ];
+
+  let donutChart = null, barCatChart = null, monthlyChart = null;
+
+  function buildCharts(s) {
+    // ── Stat strip
+    const strip = document.getElementById('chart-stats-strip');
+    strip.innerHTML =
+      mkCstat('Total Spent',      usd(s.total_amount),              'green')  +
+      mkCstat('Transactions',     s.expense_count.toLocaleString(), 'accent') +
+      mkCstat('Avg / Transaction', usd(s.average_expense),          '');
+
+    // ── Destroy old charts
+    if (donutChart)   { donutChart.destroy();   donutChart   = null; }
+    if (barCatChart)  { barCatChart.destroy();   barCatChart  = null; }
+    if (monthlyChart) { monthlyChart.destroy();  monthlyChart = null; }
+
+    const chartDefaults = {
+      plugins: { legend: { labels: { color: '#a1a1aa', font: { family: 'Inter', size: 12 }, boxWidth: 12, padding: 12 } } },
+      scales: {},
+    };
+
+    const gridStyle = { color: '#2e2e32', drawBorder: false };
+    const tickStyle = { color: '#52525b', font: { family: 'JetBrains Mono', size: 11 } };
+
+    // ── Donut: categories
+    const catLabels = Object.keys(s.category_totals).slice(0, 10);
+    const catValues = catLabels.map(k => s.category_totals[k]);
+
+    donutChart = new Chart(document.getElementById('canvas-donut'), {
+      type: 'doughnut',
+      data: {
+        labels: catLabels,
+        datasets: [{ data: catValues, backgroundColor: CHART_COLORS, borderWidth: 2, borderColor: '#18181b', hoverOffset: 6 }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        cutout: '60%',
+        plugins: {
+          legend: { position: 'bottom', labels: { color: '#a1a1aa', font: { family: 'Inter', size: 11 }, boxWidth: 10, padding: 8, usePointStyle: true, pointStyleWidth: 8 } },
+          tooltip: { callbacks: { label: ctx => ' ' + ctx.label + ': ' + usd(ctx.raw) } },
+        },
+      },
+    });
+
+    // ── Bar: top 8 categories
+    const top8Labels = catLabels.slice(0, 8);
+    const top8Values = top8Labels.map(k => s.category_totals[k]);
+
+    barCatChart = new Chart(document.getElementById('canvas-bar-cat'), {
+      type: 'bar',
+      data: {
+        labels: top8Labels,
+        datasets: [{
+          label: 'Amount',
+          data: top8Values,
+          backgroundColor: CHART_COLORS.slice(0, top8Labels.length),
+          borderRadius: 4,
+          borderSkipped: false,
+        }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ' ' + usd(ctx.raw) } } },
+        scales: {
+          x: { grid: gridStyle, ticks: { ...tickStyle, maxRotation: 35, minRotation: 35 } },
+          y: { grid: gridStyle, ticks: { ...tickStyle, callback: v => '$' + (v >= 1000 ? (v/1000).toFixed(0)+'k' : v) } },
+        },
+      },
+    });
+
+    // ── Line/Bar: monthly trend
+    const months = Object.keys(s.monthly_totals);
+    const mVals  = months.map(m => s.monthly_totals[m]);
+    const mLabels = months.map(m => {
+      const [y, mo] = m.split('-');
+      return new Date(+y, +mo - 1).toLocaleString('default', { month: 'short', year: '2-digit' });
+    });
+
+    monthlyChart = new Chart(document.getElementById('canvas-monthly'), {
+      type: 'bar',
+      data: {
+        labels: mLabels,
+        datasets: [{
+          label: 'Monthly Spending',
+          data: mVals,
+          backgroundColor: '#6366f1',
+          borderRadius: 4,
+          borderSkipped: false,
+        }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ' ' + usd(ctx.raw) } } },
+        scales: {
+          x: { grid: gridStyle, ticks: { ...tickStyle, maxRotation: 40, minRotation: 40 } },
+          y: { grid: gridStyle, ticks: { ...tickStyle, callback: v => '$' + (v >= 1000 ? (v/1000).toFixed(1)+'k' : v) } },
+        },
+      },
+    });
+  }
+
+  function mkCstat(k, v, cls) {
+    return '<div class="cstat"><div class="cstat-k">' + k + '</div><div class="cstat-v ' + cls + '">' + v + '</div></div>';
+  }
+
+  // ── Quick questions ──────────────────────────────────────────────────
+  quickBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (!dataLoaded || thinking) return;
+      send(QUESTIONS[+btn.dataset.q]);
+    });
+  });
+
+  // ── Input events ─────────────────────────────────────────────────────
+  msgInput.addEventListener('input', () => {
+    autoH(msgInput);
+    const n = msgInput.value.length;
+    charCt.textContent = n + '/2000';
+    charCt.className   = n > 1800 ? 'limit' : n > 1500 ? 'warn' : '';
+  });
+
+  msgInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (!sendBtn.disabled) go(); }
+  });
+
+  sendBtn.addEventListener('click', go);
+
+  function go() {
+    const t = msgInput.value.trim();
+    if (!t || thinking || !dataLoaded) return;
+    send(t);
+    msgInput.value         = '';
+    msgInput.style.height  = 'auto';
+    charCt.textContent     = '0/2000';
+    charCt.className       = '';
+  }
+
+  // ── Send to API ──────────────────────────────────────────────────────
+  async function send(text) {
+    addMsg('user', text);
+    setThinking(true);
+
+    try {
+      const r = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: text }),
+      });
+      const d = await r.json();
+
+      if (!r.ok || !d.success) {
+        addMsg('agent', '**Error:** ' + (d.message || d.error || 'Unexpected error.'));
+        setThinking(false);  // always re-enable on error
+        return;
+      }
+
+      addMsg('agent', d.response);
+
+    } catch (e) {
+      addMsg('agent', '**Network error.** Please check the server is running.');
+    } finally {
+      setThinking(false);
+    }
+  }
+
+  // ── Add message ──────────────────────────────────────────────────────
+  function addMsg(role, text) {
+    const row = document.createElement('div');
+    row.className = 'msg-row ' + role;
+
+    const av = document.createElement('div');
+    av.className  = 'msg-avatar';
+    av.textContent = role === 'user' ? 'U' : 'AI';
+
+    const content = document.createElement('div');
+    content.className = 'msg-content';
+
+    const bubble = document.createElement('div');
+    bubble.className = 'msg-bubble';
+
+    if (role === 'agent') {
+      bubble.innerHTML = marked.parse(text);
+    } else {
+      bubble.textContent = text;
+    }
+
+    const ts = document.createElement('div');
+    ts.className  = 'msg-time';
+    ts.textContent = timeStr();
+
+    content.appendChild(bubble);
+    content.appendChild(ts);
+    row.appendChild(av);
+    row.appendChild(content);
+    chatMessages.appendChild(row);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+  }
+
+  // ── Thinking state ───────────────────────────────────────────────────
+  function setThinking(on) {
+    thinking = on;
+    sendBtn.disabled  = on;
+    msgInput.disabled = on;
+    quickBtns.forEach(b => { b.disabled = on; });
+    typingRow.style.display = on ? 'flex' : 'none';
+    if (!on) chatMessages.scrollTop = chatMessages.scrollHeight;
+  }
+
+  // ── Reset ────────────────────────────────────────────────────────────
+  resetBtn.addEventListener('click', async () => {
+    if (!confirm('Clear conversation history? Expense data stays loaded.')) return;
+    try {
+      await fetch('/api/reset', { method: 'POST' });
+      chatMessages.innerHTML = '';
+      addMsg('agent', 'Conversation cleared. Your expense data is still loaded — ask away.');
+    } catch (e) { console.error(e); }
+  });
+
+  // ── Restore session on refresh ───────────────────────────────────────
+  (async () => {
+    try {
+      const r = await fetch('/api/status');
+      const d = await r.json();
+      if (!d.data_loaded) return;
+
+      const sr = await fetch('/api/summary');
+      const sd = await sr.json();
+      if (!sd.success) return;
+
+      buildSummary(sd.summary);
+      openChat();
+      setStatus(true, d.expense_count + ' txns');
+      dataLoaded = true;
+      if (d.currency_symbol) currencySymbol = d.currency_symbol;
+      addMsg('agent', 'Session restored — **' + d.expense_count + ' transactions** loaded (' + d.date_range + '). What would you like to know?');
+    } catch (e) { /* server not ready */ }
+  })();
+</script>
+
+</body>
+</html>
