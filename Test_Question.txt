@@ -1,0 +1,21 @@
+🧪 Finance Agent Test Questions
+📊 Basic Data Retrieval (tests data-grounding)
+1.  What is my total spending and how many transactions do I have?
+2  .Which category did I spend the most on?
+3.  Show me a breakdown of my spending by category with percentages.
+📅 Time-Based Analysis (tests monthly grouping & trends)
+4.  Which month had the highest spending and by how much?
+5  .How has my spending changed month over month?
+6.  What was my average monthly expenditure?
+🔍 Deep Dives (tests analytical depth)
+7.  What are my top 5 most expensive single transactions?
+8.  Which category has the highest number of transactions but not the highest total spend?
+9  .  What percentage of my budget goes to needs vs wants?
+💡 Insight & Pattern Detection (tests inference ability)
+10.  Are there any unusual or suspicious spending spikes in my data?
+11.  Which spending categories are essential vs discretionary?
+12.  If I cut my top spending category by 20%, how much would I save per month?
+🔗 Multi-Turn / Follow-up (tests conversation context)
+13.  (Ask Q3 first, then ask this) → Now compare the top 2 categories from that list.
+14.  (Ask Q4 first, then ask this) → What drove the spending in that month? Break it down by category.
+15.  (Ask Q12 first, then ask this) → What if I cut that same category by 30% instead?
