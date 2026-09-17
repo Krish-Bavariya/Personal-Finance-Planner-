@@ -226,3 +226,8 @@ Test the intelligence and grounding of the agent with queries such as:
 ## 📄 License
 
 This project is licensed under the **MIT License**. Feel free to use, modify, and distribute for personal or commercial projects.
+
+Project Members: 
+Krish Bavariya 
+Sakshi Zurale 
+Vedhanshu Khajone 
